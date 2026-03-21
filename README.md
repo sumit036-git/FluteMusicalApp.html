@@ -59,10 +59,16 @@ No installation or build step required.
 3. Press keys on your keyboard to play
 
 ```bash
-git clone https://github.com/your-username/flute-instrument.git
-cd flute-instrument
+git clone https://github.com/sumit036-git/FluteMusicalApp.html.git
+cd FluteMusicalApp.html
 open index.html
 ```
+
+### Play Online (GitHub Pages)
+
+After enabling GitHub Pages in the repository settings, the app is available at:
+
+`https://sumit036-git.github.io/FluteMusicalApp.html/`
 
 ---
 
@@ -106,7 +112,8 @@ Works in all modern browsers that support the Web Audio API:
 
 ```
 flute-instrument/
-└── index.html       # Everything — self-contained single file
+├── index.html       # GitHub Pages entry file
+└── flute.html       # Source copy of the same app
 ```
 
 ---

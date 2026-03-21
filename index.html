@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Flute — Digital Wind Instrument</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim: #7a5f2a;
+    --bg: #0a0806;
+    --bg2: #110e09;
+    --bg3: #1a1510;
+    --text: #e8d9b8;
+    --text-dim: #7a6e5a;
+    --hole-idle: #1f1a12;
+    --hole-active: #ffcc44;
+    --glow: rgba(201, 168, 76, 0.6);
+    --shadow: rgba(0,0,0,0.8);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.6;
+  }
+
+  /* Ambient gradient background */
+  .bg-ambient {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 80% 100%, rgba(120,80,20,0.06) 0%, transparent 60%),
+      linear-gradient(180deg, #0d0a06 0%, #0a0806 50%, #080604 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app-wrap {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  /* ---- Header ---- */
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeSlideDown 1s ease both;
+  }
+  header .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 0.5rem;
+  }
+  header h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 400;
+    background: linear-gradient(135deg, #c9a84c 0%, #f0d98a 40%, #b8912e 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+  }
+  header p {
+    margin-top: 0.8rem;
+    font-size: 1rem;
+    color: var(--text-dim);
+    font-style: italic;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- Note Display ---- */
+  .note-display {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    animation: fadeSlideDown 1s 0.2s ease both;
+  }
+  .note-badge {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1.5px solid var(--gold-dim);
+    background: radial-gradient(circle, #1e1810 0%, #0d0a06 100%);
+    transition: all 0.15s ease;
+  }
+  .note-badge.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 30px var(--glow), inset 0 0 20px rgba(201,168,76,0.08);
+  }
+  .note-badge .note-letter {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--gold-light);
+    transition: all 0.15s;
+  }
+  .note-badge .note-octave {
+    font-size: 0.7rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+  .note-badge.active .note-letter {
+    text-shadow: 0 0 20px var(--gold-light);
+  }
+  .note-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .note-freq {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+  }
+  .note-name-full {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  .wave-visual {
+    width: 120px;
+    height: 40px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+  .wave-visual.playing { opacity: 1; }
+
+  /* ---- Flute SVG Body ---- */
+  .flute-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 3rem;
+    animation: fadeSlideUp 1s 0.3s ease both;
+  }
+
+  .flute-svg-wrap {
+    width: 100%;
+    filter: drop-shadow(0 10px 40px rgba(0,0,0,0.7));
+    transition: filter 0.3s;
+  }
+  .flute-svg-wrap.playing-glow {
+    filter: drop-shadow(0 10px 40px rgba(0,0,0,0.7)) drop-shadow(0 0 30px rgba(201,168,76,0.3));
+  }
+
+  /* ---- Keyboard Section ---- */
+  .keyboard-section {
+    width: 100%;
+    max-width: 900px;
+    animation: fadeSlideUp 1s 0.5s ease both;
+  }
+
+  .keys-label {
+    text-align: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 1.2rem;
+  }
+
+  .keys-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .key-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .key-item:active { transform: scale(0.93); }
+
+  .key-cap {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #2a2218;
+    background: linear-gradient(145deg, #1e1912, #141009);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.12s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(201,168,76,0.06);
+  }
+  .key-cap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(201,168,76,0) 0%, rgba(201,168,76,0.04) 100%);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .key-cap.active {
+    border-color: var(--gold);
+    background: linear-gradient(145deg, #2e2210, #1a1508);
+    box-shadow: 0 0 20px rgba(201,168,76,0.5), 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(201,168,76,0.2);
+    transform: translateY(2px);
+  }
+  .key-cap.active::before { opacity: 1; }
+  .key-letter {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 1rem;
+    color: var(--gold);
+    line-height: 1;
+    transition: color 0.12s;
+  }
+  .key-cap.active .key-letter { color: var(--gold-light); text-shadow: 0 0 8px var(--gold-light); }
+  .key-note-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-top: 1px;
+    transition: color 0.12s;
+  }
+  .key-cap.active .key-note-label { color: var(--gold-dim); }
+
+  .key-note-name {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    font-style: italic;
+  }
+  .key-item.active-label .key-note-name { color: var(--gold); }
+
+  /* Divider row label for sharps */
+  .keys-row-sharp {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  .sharp-spacer { width: 52px; }
+
+  /* ---- Instructions ---- */
+  .instructions {
+    margin-top: 2.5rem;
+    text-align: center;
+    animation: fadeSlideUp 1s 0.7s ease both;
+  }
+  .instructions p {
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .instructions span {
+    color: var(--gold-dim);
+  }
+
+  /* ---- Volume ---- */
+  .controls-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 1.8rem;
+    justify-content: center;
+    animation: fadeSlideUp 1s 0.8s ease both;
+  }
+  .ctrl-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+  input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(to right, var(--gold) 0%, var(--gold-dim) 100%);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(201,168,76,0.5);
+    cursor: pointer;
+  }
+
+  /* ---- Ripple on note-badge ---- */
+  .ripple {
+    position: absolute;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: rgba(201,168,76,0.4);
+    transform: scale(0);
+    animation: rippleOut 0.6s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes rippleOut {
+    to { transform: scale(10); opacity: 0; }
+  }
+
+  /* ---- Particles ---- */
+  .particles-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ---- Animations ---- */
+  @keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes waveAnim {
+    0%,100% { d: path("M0,20 Q15,10 30,20 Q45,30 60,20 Q75,10 90,20 Q105,30 120,20"); }
+    50% { d: path("M0,20 Q15,30 30,20 Q45,10 60,20 Q75,30 90,20 Q105,10 120,20"); }
+  }
+  @keyframes holePulse {
+    0%,100% { filter: brightness(1); }
+    50% { filter: brightness(1.8) drop-shadow(0 0 6px #ffcc44); }
+  }
+  .hole-active { animation: holePulse 0.4s ease; }
+
+  /* Scrolling note tape */
+  .note-tape {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .tape-note {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 0.85rem;
+    color: var(--gold);
+    opacity: 0;
+    transform: translateY(10px);
+    animation: tapeRise 1.2s ease forwards;
+    text-shadow: 0 0 10px var(--gold);
+  }
+  @keyframes tapeRise {
+    0% { opacity: 0; transform: translateY(10px); }
+    20% { opacity: 1; transform: translateY(-5px); }
+    80% { opacity: 0.8; transform: translateY(-30px); }
+    100% { opacity: 0; transform: translateY(-60px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-ambient"></div>
+<canvas class="particles-canvas" id="particlesCanvas"></canvas>
+
+<div class="app-wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="eyebrow">Digital Wind Instrument</div>
+    <h1>Flute</h1>
+    <p>Play music with your keyboard — breathe life into the notes</p>
+  </header>
+
+  <!-- Note Display -->
+  <div class="note-display">
+    <div class="note-badge" id="noteBadge">
+      <div class="note-letter" id="noteLetter">—</div>
+      <div class="note-octave" id="noteOctave"></div>
+    </div>
+    <div class="note-info">
+      <div class="note-freq" id="noteFreq">Awaiting play</div>
+      <div class="note-name-full" id="noteFullName">Press a key to begin</div>
+    </div>
+    <svg class="wave-visual" id="waveVis" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path id="wavePath" d="M0,20 Q15,20 30,20 Q45,20 60,20 Q75,20 90,20 Q105,20 120,20"
+            stroke="#c9a84c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- Flute SVG -->
+  <div class="flute-container">
+    <div class="flute-svg-wrap" id="fluteSvgWrap">
+      <svg viewBox="0 0 860 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+        <defs>
+          <linearGradient id="fluteBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#d4a843"/>
+            <stop offset="30%" stop-color="#b8912e"/>
+            <stop offset="60%" stop-color="#7a5c1e"/>
+            <stop offset="80%" stop-color="#c9a84c"/>
+            <stop offset="100%" stop-color="#5a4010"/>
+          </linearGradient>
+          <linearGradient id="fluteShine" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(255,220,120,0.5)"/>
+            <stop offset="40%" stop-color="rgba(255,220,120,0)"/>
+          </linearGradient>
+          <linearGradient id="mouthGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2a1f0e"/>
+            <stop offset="100%" stop-color="#0d0a06"/>
+          </linearGradient>
+          <filter id="holeGlow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+          <radialGradient id="holeActive" cx="50%" cy="30%" r="60%">
+            <stop offset="0%" stop-color="#ffe066"/>
+            <stop offset="60%" stop-color="#c9a84c"/>
+            <stop offset="100%" stop-color="#7a5010"/>
+          </radialGradient>
+        </defs>
+
+        <!-- End cap left (mouthpiece) -->
+        <rect x="0" y="30" width="48" height="30" rx="15" fill="url(#fluteBody)"/>
+        <rect x="0" y="30" width="48" height="10" rx="4" fill="url(#fluteShine)" opacity="0.4"/>
+
+        <!-- Mouth hole -->
+        <ellipse cx="55" cy="45" rx="14" ry="9" fill="url(#mouthGrad)" stroke="#7a5c1e" stroke-width="1.2"/>
+        <ellipse cx="55" cy="43" rx="10" ry="5" fill="#1a1206"/>
+
+        <!-- Main flute body -->
+        <rect x="28" y="32" width="800" height="26" rx="0" fill="url(#fluteBody)"/>
+        <rect x="28" y="32" width="800" height="8" fill="url(#fluteShine)" opacity="0.35"/>
+        <!-- Bottom shadow line -->
+        <rect x="28" y="55" width="800" height="3" fill="rgba(0,0,0,0.3)"/>
+
+        <!-- End cap right -->
+        <rect x="812" y="30" width="48" height="30" rx="15" fill="url(#fluteBody)"/>
+        <rect x="812" y="30" width="48" height="10" rx="4" fill="url(#fluteShine)" opacity="0.3"/>
+
+        <!-- Ring decorations -->
+        <rect x="68" y="32" width="5" height="26" rx="2" fill="#f0d98a" opacity="0.6"/>
+        <rect x="78" y="32" width="5" height="26" rx="2" fill="#d4a843" opacity="0.5"/>
+        <rect x="620" y="32" width="5" height="26" rx="2" fill="#f0d98a" opacity="0.5"/>
+        <rect x="630" y="32" width="5" height="26" rx="2" fill="#d4a843" opacity="0.4"/>
+        <rect x="810" y="32" width="5" height="26" rx="2" fill="#f0d98a" opacity="0.5"/>
+
+        <!-- HOLES — 9 holes for keys A S D F G H J K L -->
+        <!-- Each hole: background circle + inner -->
+        <!-- hole 0: A = C4 -->
+        <circle id="hole0" cx="160" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="160" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 1: S = D4 -->
+        <circle id="hole1" cx="240" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="240" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 2: D = E4 -->
+        <circle id="hole2" cx="320" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="320" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 3: F = F4 -->
+        <circle id="hole3" cx="400" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="400" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 4: G = G4 -->
+        <circle id="hole4" cx="480" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="480" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 5: H = A4 -->
+        <circle id="hole5" cx="540" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="540" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 6: J = B4 -->
+        <circle id="hole6" cx="600" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="600" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 7: K = C5 -->
+        <circle id="hole7" cx="680" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="680" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+
+        <!-- hole 8: L = D5 -->
+        <circle id="hole8" cx="760" cy="45" r="10" fill="#1a1206" stroke="#7a5c1e" stroke-width="1.5"/>
+        <circle cx="760" cy="43" r="5" fill="#0d0a06" opacity="0.8"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Keyboard Map — Natural Notes -->
+  <div class="keyboard-section">
+    <div class="keys-label">— Natural Notes (A S D F G H J K L) —</div>
+    <div class="keys-row" id="naturalKeysRow">
+      <!-- Rendered by JS -->
+    </div>
+
+    <div class="keys-label" style="margin-top:1.4rem;">— Sharp / High Notes (W E R T Y U I) —</div>
+    <div class="keys-row" id="sharpKeysRow">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-row">
+    <span class="ctrl-label">Volume</span>
+    <input type="range" id="volumeSlider" min="0" max="100" value="75"/>
+    <span class="ctrl-label" id="volDisplay">75%</span>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions">
+    <p>Press & hold keys to sustain notes · <span>Laptop keyboard supported</span></p>
+  </div>
+
+</div>
+
+<!-- Floating note tape -->
+<div class="note-tape" id="noteTape"></div>
+
+<script>
+// ========== NOTE DATA ==========
+const NOTES = {
+  // Natural (main row)
+  'a': { name: 'C',  octave: 4, freq: 261.63, full: 'Do',      hole: 0 },
+  's': { name: 'D',  octave: 4, freq: 293.66, full: 'Re',      hole: 1 },
+  'd': { name: 'E',  octave: 4, freq: 329.63, full: 'Mi',      hole: 2 },
+  'f': { name: 'F',  octave: 4, freq: 349.23, full: 'Fa',      hole: 3 },
+  'g': { name: 'G',  octave: 4, freq: 392.00, full: 'Sol',     hole: 4 },
+  'h': { name: 'A',  octave: 4, freq: 440.00, full: 'La',      hole: 5 },
+  'j': { name: 'B',  octave: 4, freq: 493.88, full: 'Si',      hole: 6 },
+  'k': { name: 'C',  octave: 5, freq: 523.25, full: 'Do (5)',  hole: 7 },
+  'l': { name: 'D',  octave: 5, freq: 587.33, full: 'Re (5)',  hole: 8 },
+  // Sharps / higher
+  'w': { name: 'C#', octave: 4, freq: 277.18, full: 'Do♯',     hole: null },
+  'e': { name: 'D#', octave: 4, freq: 311.13, full: 'Re♯',     hole: null },
+  'r': { name: 'F#', octave: 4, freq: 369.99, full: 'Fa♯',     hole: null },
+  't': { name: 'G#', octave: 4, freq: 415.30, full: 'Sol♯',    hole: null },
+  'y': { name: 'A#', octave: 4, freq: 466.16, full: 'La♯',     hole: null },
+  'u': { name: 'E',  octave: 5, freq: 659.25, full: 'Mi (5)',  hole: null },
+  'i': { name: 'F',  octave: 5, freq: 698.46, full: 'Fa (5)',  hole: null },
+};
+
+const NATURAL_KEYS = ['a','s','d','f','g','h','j','k','l'];
+const SHARP_KEYS   = ['w','e','r','t','y','u','i'];
+
+// ========== AUDIO ENGINE ==========
+let audioCtx = null;
+const activeNodes = {};
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function fluteWave(freq, destination, vol) {
+  const now = audioCtx.currentTime;
+
+  // Gain envelope
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(vol * 0.5, now + 0.07);
+  gainNode.gain.linearRampToValueAtTime(vol * 0.35, now + 0.2);
+
+  // Fundamental oscillator
+  const osc1 = audioCtx.createOscillator();
+  osc1.type = 'sine';
+  osc1.frequency.setValueAtTime(freq, now);
+
+  // 2nd harmonic (octave up, low level)
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(freq * 2, now);
+  const g2 = audioCtx.createGain(); g2.gain.value = 0.18;
+
+  // 3rd harmonic
+  const osc3 = audioCtx.createOscillator();
+  osc3.type = 'sine';
+  osc3.frequency.setValueAtTime(freq * 3, now);
+  const g3 = audioCtx.createGain(); g3.gain.value = 0.06;
+
+  // Vibrato LFO
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 5.2;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.setValueAtTime(0, now);
+  lfoGain.gain.linearRampToValueAtTime(freq * 0.008, now + 0.25);
+
+  // Breath noise (bandpass filtered noise)
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer; noise.loop = true;
+  const bpf = audioCtx.createBiquadFilter();
+  bpf.type = 'bandpass'; bpf.frequency.value = freq * 1.5; bpf.Q.value = 0.8;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(vol * 0.04, now);
+  noiseGain.gain.linearRampToValueAtTime(vol * 0.02, now + 0.15);
+
+  // Reverb-like delay
+  const delay = audioCtx.createDelay(0.05);
+  delay.delayTime.value = 0.03;
+  const delayGain = audioCtx.createGain(); delayGain.gain.value = 0.12;
+
+  // Connect
+  lfo.connect(lfoGain); lfoGain.connect(osc1.frequency); lfoGain.connect(osc2.frequency);
+  osc1.connect(gainNode);
+  osc2.connect(g2); g2.connect(gainNode);
+  osc3.connect(g3); g3.connect(gainNode);
+  noise.connect(bpf); bpf.connect(noiseGain); noiseGain.connect(gainNode);
+  gainNode.connect(destination);
+  gainNode.connect(delay); delay.connect(delayGain); delayGain.connect(destination);
+
+  osc1.start(now); osc2.start(now); osc3.start(now); lfo.start(now); noise.start(now);
+
+  return { gainNode, osc1, osc2, osc3, lfo, noise, g2, g3, noiseGain };
+}
+
+function stopNote(key) {
+  if (!activeNodes[key]) return;
+  const { gainNode, osc1, osc2, osc3, lfo, noise } = activeNodes[key];
+  const now = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+  setTimeout(() => {
+    try { osc1.stop(); osc2.stop(); osc3.stop(); lfo.stop(); noise.stop(); } catch(e){}
+  }, 400);
+  delete activeNodes[key];
+}
+
+// ========== VOLUME ==========
+let masterVolume = 0.75;
+let masterGain = null;
+
+function initMaster() {
+  if (!audioCtx) return;
+  if (!masterGain) {
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = masterVolume;
+    masterGain.connect(audioCtx.destination);
+  }
+}
+
+document.getElementById('volumeSlider').addEventListener('input', e => {
+  masterVolume = e.target.value / 100;
+  document.getElementById('volDisplay').textContent = e.target.value + '%';
+  if (masterGain) masterGain.gain.value = masterVolume;
+});
+
+// ========== PLAY / STOP ==========
+const pressedKeys = new Set();
+
+function playNote(key) {
+  if (pressedKeys.has(key)) return;
+  const note = NOTES[key];
+  if (!note) return;
+  pressedKeys.add(key);
+  ensureAudio();
+  initMaster();
+  const nodes = fluteWave(note.freq, masterGain, masterVolume);
+  activeNodes[key] = nodes;
+  updateUI(key, note, true);
+}
+
+function releaseNote(key) {
+  if (!pressedKeys.has(key)) return;
+  pressedKeys.delete(key);
+  stopNote(key);
+  updateUI(key, NOTES[key], false);
+  if (pressedKeys.size === 0) clearUI();
+}
+
+// ========== KEYBOARD EVENTS ==========
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  playNote(e.key.toLowerCase());
+});
+window.addEventListener('keyup', e => {
+  releaseNote(e.key.toLowerCase());
+});
+
+// ========== UI UPDATES ==========
+function updateUI(key, note, active) {
+  // Key cap
+  const cap = document.querySelector(`[data-key="${key}"] .key-cap`);
+  const item = document.querySelector(`[data-key="${key}"]`);
+  if (cap) { active ? cap.classList.add('active') : cap.classList.remove('active'); }
+  if (item) { active ? item.classList.add('active-label') : item.classList.remove('active-label'); }
+
+  // Flute hole
+  if (note.hole !== null) {
+    const hole = document.getElementById(`hole${note.hole}`);
+    if (hole) {
+      if (active) {
+        hole.setAttribute('fill', 'url(#holeActive)');
+        hole.setAttribute('filter', 'url(#holeGlow)');
+        hole.classList.add('hole-active');
+      } else {
+        hole.setAttribute('fill', '#1a1206');
+        hole.removeAttribute('filter');
+        hole.classList.remove('hole-active');
+      }
+    }
+  }
+
+  if (active) {
+    // Note badge
+    const badge = document.getElementById('noteBadge');
+    badge.classList.add('active');
+    document.getElementById('noteLetter').textContent = note.name;
+    document.getElementById('noteOctave').textContent = `Oct ${note.octave}`;
+    document.getElementById('noteFreq').textContent = `${note.freq} Hz`;
+    document.getElementById('noteFullName').textContent = note.full;
+
+    // Glow flute
+    document.getElementById('fluteSvgWrap').classList.add('playing-glow');
+
+    // Wave animation
+    const waveVis = document.getElementById('waveVis');
+    waveVis.classList.add('playing');
+    animateWave(note.freq);
+
+    // Floating note
+    spawnTapeNote(note.name + note.octave);
+
+    // Particles
+    spawnParticles();
+  }
+}
+
+function clearUI() {
+  document.getElementById('noteBadge').classList.remove('active');
+  document.getElementById('noteLetter').textContent = '—';
+  document.getElementById('noteOctave').textContent = '';
+  document.getElementById('noteFreq').textContent = 'Awaiting play';
+  document.getElementById('noteFullName').textContent = 'Press a key to begin';
+  document.getElementById('fluteSvgWrap').classList.remove('playing-glow');
+  document.getElementById('waveVis').classList.remove('playing');
+  stopWaveAnim();
+}
+
+// ========== WAVE ANIMATION ==========
+let waveAnimId = null;
+let waveT = 0;
+function animateWave(freq) {
+  if (waveAnimId) cancelAnimationFrame(waveAnimId);
+  const speed = (freq / 440) * 0.06;
+  const path = document.getElementById('wavePath');
+  function frame() {
+    waveT += speed;
+    const amp = 7;
+    const d = `M0,20 C15,${20 - amp * Math.sin(waveT)} 30,${20 + amp * Math.sin(waveT + 1)} 60,20 C90,${20 - amp * Math.sin(waveT + 2)} 105,${20 + amp * Math.sin(waveT + 3)} 120,20`;
+    path.setAttribute('d', d);
+    waveAnimId = requestAnimationFrame(frame);
+  }
+  frame();
+}
+function stopWaveAnim() {
+  if (waveAnimId) cancelAnimationFrame(waveAnimId);
+  waveAnimId = null;
+  document.getElementById('wavePath').setAttribute('d', 'M0,20 Q15,20 30,20 Q45,20 60,20 Q75,20 90,20 Q105,20 120,20');
+}
+
+// ========== FLOATING NOTE TAPE ==========
+function spawnTapeNote(text) {
+  const tape = document.getElementById('noteTape');
+  const el = document.createElement('div');
+  el.className = 'tape-note';
+  el.textContent = text;
+  tape.appendChild(el);
+  setTimeout(() => el.remove(), 1300);
+}
+
+// ========== PARTICLES ==========
+const canvas = document.getElementById('particlesCanvas');
+const ctx2 = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function spawnParticles() {
+  for (let i = 0; i < 4; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height * 0.45 + (Math.random() - 0.5) * 60,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: -Math.random() * 2 - 0.5,
+      size: Math.random() * 3 + 1,
+      alpha: 0.8,
+      color: Math.random() > 0.5 ? '#c9a84c' : '#f0d98a'
+    });
+  }
+}
+
+function animParticles() {
+  ctx2.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.alpha > 0.02);
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy;
+    p.alpha *= 0.97;
+    ctx2.beginPath();
+    ctx2.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx2.fillStyle = p.color;
+    ctx2.globalAlpha = p.alpha;
+    ctx2.fill();
+  }
+  ctx2.globalAlpha = 1;
+  requestAnimationFrame(animParticles);
+}
+animParticles();
+
+// ========== BUILD KEYBOARD UI ==========
+const naturalRow = document.getElementById('naturalKeysRow');
+NATURAL_KEYS.forEach(key => {
+  const note = NOTES[key];
+  const item = document.createElement('div');
+  item.className = 'key-item';
+  item.setAttribute('data-key', key);
+  item.innerHTML = `
+    <div class="key-cap">
+      <div class="key-letter">${key.toUpperCase()}</div>
+      <div class="key-note-label">${note.name}${note.octave}</div>
+    </div>
+    <div class="key-note-name">${note.full}</div>
+  `;
+  // Touch/click support
+  item.addEventListener('mousedown', () => playNote(key));
+  item.addEventListener('mouseup', () => releaseNote(key));
+  item.addEventListener('mouseleave', () => releaseNote(key));
+  item.addEventListener('touchstart', e => { e.preventDefault(); playNote(key); }, { passive: false });
+  item.addEventListener('touchend', e => { e.preventDefault(); releaseNote(key); }, { passive: false });
+  naturalRow.appendChild(item);
+});
+
+const sharpRow = document.getElementById('sharpKeysRow');
+SHARP_KEYS.forEach(key => {
+  const note = NOTES[key];
+  const item = document.createElement('div');
+  item.className = 'key-item';
+  item.setAttribute('data-key', key);
+  item.innerHTML = `
+    <div class="key-cap">
+      <div class="key-letter">${key.toUpperCase()}</div>
+      <div class="key-note-label">${note.name}${note.octave}</div>
+    </div>
+    <div class="key-note-name">${note.full}</div>
+  `;
+  item.addEventListener('mousedown', () => playNote(key));
+  item.addEventListener('mouseup', () => releaseNote(key));
+  item.addEventListener('mouseleave', () => releaseNote(key));
+  item.addEventListener('touchstart', e => { e.preventDefault(); playNote(key); }, { passive: false });
+  item.addEventListener('touchend', e => { e.preventDefault(); releaseNote(key); }, { passive: false });
+  sharpRow.appendChild(item);
+});
+</script>
+</body>
+</html>
