@@ -532,7 +532,7 @@
 
   <!-- Keyboard Map — Natural Notes -->
   <div class="keyboard-section">
-    <div class="keys-label">— Natural Notes (A S D F G H J K L) —</div>
+    <div class="keys-label">— Natural Notes (A S D F G H J K L ;) —</div>
     <div class="keys-row" id="naturalKeysRow">
       <!-- Rendered by JS -->
     </div>
@@ -570,9 +570,10 @@ const NOTES = {
   'f': { name: 'F',  octave: 4, freq: 349.23, full: 'Fa',      hole: 3 },
   'g': { name: 'G',  octave: 4, freq: 392.00, full: 'Sol',     hole: 4 },
   'h': { name: 'A',  octave: 4, freq: 440.00, full: 'La',      hole: 5 },
-  'j': { name: 'B',  octave: 4, freq: 493.88, full: 'Si',      hole: 6 },
-  'k': { name: 'C',  octave: 5, freq: 523.25, full: 'Do (5)',  hole: 7 },
-  'l': { name: 'D',  octave: 5, freq: 587.33, full: 'Re (5)',  hole: 8 },
+  'j': { name: 'B',  octave: 4, freq: 493.88, full: 'Ti',      hole: 6 },
+  'k': { name: 'B',  octave: 5, freq: 987.77, full: 'Si (5)',  hole: 7 },
+  'l': { name: 'C',  octave: 5, freq: 523.25, full: 'Do (5)',  hole: 8 },
+  ';': { name: 'D',  octave: 5, freq: 587.33, full: 'Re (5)',  hole: null },
   // Sharps / higher
   'w': { name: 'C#', octave: 4, freq: 277.18, full: 'Do♯',     hole: null },
   'e': { name: 'D#', octave: 4, freq: 311.13, full: 'Re♯',     hole: null },
@@ -583,7 +584,7 @@ const NOTES = {
   'i': { name: 'F',  octave: 5, freq: 698.46, full: 'Fa (5)',  hole: null },
 };
 
-const NATURAL_KEYS = ['a','s','d','f','g','h','j','k','l'];
+const NATURAL_KEYS = ['a','s','d','f','g','h','j','k','l',';'];
 const SHARP_KEYS   = ['w','e','r','t','y','u','i'];
 
 // ========== AUDIO ENGINE ==========

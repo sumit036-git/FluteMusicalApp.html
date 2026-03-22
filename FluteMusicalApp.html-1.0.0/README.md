@@ -62,25 +62,7 @@ No installation or build step required.
 ```bash
 git clone https://github.com/sumit036-git/FluteMusicalApp.html.git
 cd FluteMusicalApp.html
-# Windows
-start index.html
-
-# macOS
 open index.html
-```
-
-### Run on localhost (one command)
-
-From project folder, run:
-
-```powershell
-.\run-local.ps1
-```
-
-Custom port example:
-
-```powershell
-.\run-local.ps1 -Port 8080
 ```
 
 ### Play Online (GitHub Pages)
@@ -131,7 +113,6 @@ Works in all modern browsers that support the Web Audio API:
 
 ```
 flute-instrument/
-├── run-local.ps1    # One-command localhost server launcher
 ├── index.html       # GitHub Pages entry file
 └── flute.html       # Source copy of the same app
 ```
