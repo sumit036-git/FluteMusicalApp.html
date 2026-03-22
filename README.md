@@ -31,7 +31,7 @@ A beautifully designed, browser-based digital flute you can play with your keybo
 | `G` | G4   | Sol     | 392.00 Hz |
 | `H` | A4   | La      | 440.00 Hz |
 | `J` | B4   | Ti      | 493.88 Hz |
-| `K` | B5   | Si (5)  | 987.77 Hz |
+| `K` | B4   | Si      | 506.50 Hz |
 | `L` | C5   | Do (5)  | 523.25 Hz |
 | `;` | D5   | Re (5)  | 587.33 Hz |
 
